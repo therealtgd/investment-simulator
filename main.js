@@ -5,7 +5,7 @@
  * Run:  node main.js
  *
  * 1. Prints a summary to the terminal
- * 2. Generates output/dashboard.html — a fully interactive dashboard
+ * 2. Generates docs/index.html — a fully interactive dashboard
  *    with live parameter controls (no server needed, just open in browser)
  */
 
@@ -13,35 +13,95 @@ const fs = require("fs");
 const path = require("path");
 const cfg = require("./config");
 const {
-  simulateLumpSum, simulateMonthly, simulateLoanInvest, simulateMixed,
-  applyInflation, applySerbianTax, fireNumber, monthsToFire,
+  simulateLumpSum,
+  simulateMonthly,
+  simulateLoanInvest,
+  simulateMixed,
+  applyInflation,
+  applySerbianTax,
+  fireNumber,
+  monthsToFire,
 } = require("./simulation");
 const { SCENARIOS } = require("./scenarios");
 
 // ── helpers ──────────────────────────────────────────────────────
 
 function fmt(v) {
-  if (Math.abs(v) >= 1e6) return v.toLocaleString("en", { maximumFractionDigits: 0 });
-  return v.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (Math.abs(v) >= 1e6)
+    return v.toLocaleString("en", { maximumFractionDigits: 0 });
+  return v.toLocaleString("en", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
-function pad(s, n, a = "right") { s = String(s); return a === "right" ? s.padStart(n) : s.padEnd(n); }
+function pad(s, n, a = "right") {
+  s = String(s);
+  return a === "right" ? s.padStart(n) : s.padEnd(n);
+}
 
 // ── strategies ───────────────────────────────────────────────────
 
 function buildStrategies() {
   return [
-    { label: "A: Monthly Only", fn: simulateMonthly, params: { monthly: cfg.MONTHLY_INVESTMENT, years: cfg.YEARS, yearlyIncreaseRate: 0 } },
-    { label: "B: Loan + Invest", fn: simulateLoanInvest, params: { loanAmount: cfg.LOAN_AMOUNT, loanRate: cfg.LOAN_INTEREST_RATE, loanYears: cfg.LOAN_YEARS, investYears: cfg.YEARS, monthlyBudget: cfg.MONTHLY_BUDGET } },
-    { label: "C: Lump Sum + Monthly", fn: simulateMixed, params: { initial: cfg.INITIAL_INVESTMENT, monthly: cfg.MONTHLY_INVESTMENT, years: cfg.YEARS, yearlyIncreaseRate: 0 } },
-    { label: "D: Monthly + Yearly Raise", fn: simulateMonthly, params: { monthly: cfg.MONTHLY_INVESTMENT, years: cfg.YEARS, yearlyIncreaseRate: cfg.YEARLY_INVESTMENT_INCREASE_RATE } },
-    { label: "E: Full Mixed + Raise", fn: simulateMixed, params: { initial: cfg.INITIAL_INVESTMENT, monthly: cfg.MONTHLY_INVESTMENT, years: cfg.YEARS, yearlyIncreaseRate: cfg.YEARLY_INVESTMENT_INCREASE_RATE } },
+    {
+      label: "A: Monthly Only",
+      fn: simulateMonthly,
+      params: {
+        monthly: cfg.MONTHLY_INVESTMENT,
+        years: cfg.YEARS,
+        yearlyIncreaseRate: 0,
+      },
+    },
+    {
+      label: "B: Loan + Invest",
+      fn: simulateLoanInvest,
+      params: {
+        loanAmount: cfg.LOAN_AMOUNT,
+        loanRate: cfg.LOAN_INTEREST_RATE,
+        loanYears: cfg.LOAN_YEARS,
+        investYears: cfg.YEARS,
+        monthlyBudget: cfg.MONTHLY_BUDGET,
+      },
+    },
+    {
+      label: "C: Lump Sum + Monthly",
+      fn: simulateMixed,
+      params: {
+        initial: cfg.INITIAL_INVESTMENT,
+        monthly: cfg.MONTHLY_INVESTMENT,
+        years: cfg.YEARS,
+        yearlyIncreaseRate: 0,
+      },
+    },
+    {
+      label: "D: Monthly + Yearly Raise",
+      fn: simulateMonthly,
+      params: {
+        monthly: cfg.MONTHLY_INVESTMENT,
+        years: cfg.YEARS,
+        yearlyIncreaseRate: cfg.YEARLY_INVESTMENT_INCREASE_RATE,
+      },
+    },
+    {
+      label: "E: Full Mixed + Raise",
+      fn: simulateMixed,
+      params: {
+        initial: cfg.INITIAL_INVESTMENT,
+        monthly: cfg.MONTHLY_INVESTMENT,
+        years: cfg.YEARS,
+        yearlyIncreaseRate: cfg.YEARLY_INVESTMENT_INCREASE_RATE,
+      },
+    },
   ];
 }
 
 function runStrategy(label, fn, params, scenario) {
   const args = { ...params, annualReturn: scenario.annualReturn };
   if (scenario.returnsOverride) args.returnsOverride = scenario.returnsOverride;
-  if (cfg.ENABLE_VOLATILITY) { args.enableVolatility = true; args.volatilityStd = cfg.VOLATILITY_STD; }
+  if (cfg.ENABLE_VOLATILITY) {
+    args.enableVolatility = true;
+    args.volatilityStd = cfg.VOLATILITY_STD;
+  }
 
   const result = fn(args);
   result.strategy = label;
@@ -49,7 +109,12 @@ function runStrategy(label, fn, params, scenario) {
   result.realValues = applyInflation(result.monthlyValues, cfg.INFLATION_RATE);
   result.realFinal = result.realValues[result.realValues.length - 1];
 
-  const taxInfo = applySerbianTax(result.contributions, result.growthFactors, cfg.TAX_RATE, cfg.TAX_EXEMPT_YEARS);
+  const taxInfo = applySerbianTax(
+    result.contributions,
+    result.growthFactors,
+    cfg.TAX_RATE,
+    cfg.TAX_EXEMPT_YEARS,
+  );
   Object.assign(result, taxInfo);
 
   return result;
@@ -60,8 +125,12 @@ function runStrategy(label, fn, params, scenario) {
 function printSummary(results) {
   const div = "=".repeat(120);
   console.log(`\n${div}`);
-  console.log(`INVESTMENT SIMULATION — Serbian Tax Rule (exempt after ${cfg.TAX_EXEMPT_YEARS}y, ${(cfg.TAX_RATE*100).toFixed(0)}% on gains held <${cfg.TAX_EXEMPT_YEARS}y)`);
-  console.log(`Duration: ${cfg.YEARS}y | Inflation: ${(cfg.INFLATION_RATE*100).toFixed(1)}%`);
+  console.log(
+    `INVESTMENT SIMULATION — Serbian Tax Rule (exempt after ${cfg.TAX_EXEMPT_YEARS}y, ${(cfg.TAX_RATE * 100).toFixed(0)}% on gains held <${cfg.TAX_EXEMPT_YEARS}y)`,
+  );
+  console.log(
+    `Duration: ${cfg.YEARS}y | Inflation: ${(cfg.INFLATION_RATE * 100).toFixed(1)}%`,
+  );
   console.log(div);
 
   let cur = null;
@@ -69,23 +138,29 @@ function printSummary(results) {
     if (r.scenario !== cur) {
       cur = r.scenario;
       console.log(`\n  ▸ ${cur}`);
-      console.log(`  ${pad("Strategy",28,"left")} ${pad("Invested",14)} ${pad("Final",14)} ${pad("Profit",14)} ${pad("Tax",12)} ${pad("After Tax",14)} ${pad("Exempt%",8)}`);
-      console.log(`  ${"-".repeat(28)} ${"-".repeat(14)} ${"-".repeat(14)} ${"-".repeat(14)} ${"-".repeat(12)} ${"-".repeat(14)} ${"-".repeat(8)}`);
+      console.log(
+        `  ${pad("Strategy", 28, "left")} ${pad("Invested", 14)} ${pad("Final", 14)} ${pad("Profit", 14)} ${pad("Tax", 12)} ${pad("After Tax", 14)} ${pad("Exempt%", 8)}`,
+      );
+      console.log(
+        `  ${"-".repeat(28)} ${"-".repeat(14)} ${"-".repeat(14)} ${"-".repeat(14)} ${"-".repeat(12)} ${"-".repeat(14)} ${"-".repeat(8)}`,
+      );
     }
     let note = "";
     if (r.extra.totalInterestPaid != null) {
       note = `  [budget: ${fmt(r.extra.monthlyBudget)}/mo, loan: ${fmt(r.extra.monthlyPayment)}/mo, invest surplus: ${fmt(r.extra.monthlySurplus)}/mo, interest: ${fmt(r.extra.totalInterestPaid)}]`;
     }
     console.log(
-      `  ${pad(r.strategy,28,"left")} ${pad(fmt(r.totalInvested),14)} ${pad(fmt(r.finalValue),14)} ${pad(fmt(r.profit),14)} ${pad(fmt(r.tax),12)} ${pad(fmt(r.profit - r.tax),14)} ${pad(r.exemptPct.toFixed(0)+"%",8)}${note}`
+      `  ${pad(r.strategy, 28, "left")} ${pad(fmt(r.totalInvested), 14)} ${pad(fmt(r.finalValue), 14)} ${pad(fmt(r.profit), 14)} ${pad(fmt(r.tax), 12)} ${pad(fmt(r.profit - r.tax), 14)} ${pad(r.exemptPct.toFixed(0) + "%", 8)}${note}`,
     );
   }
 
   const ft = fireNumber(cfg.FIRE_ANNUAL_EXPENSES, cfg.FIRE_WITHDRAWAL_RATE);
   console.log(`\n  FIRE target: ${fmt(ft)}`);
-  for (const r of results.filter(r => r.scenario.includes("Base"))) {
+  for (const r of results.filter((r) => r.scenario.includes("Base"))) {
     const m = monthsToFire(r.monthlyValues, ft);
-    console.log(`    ${pad(r.strategy,28,"left")} ${m !== null ? `${Math.floor(m/12)}y ${m%12}m` : "not reached"}`);
+    console.log(
+      `    ${pad(r.strategy, 28, "left")} ${m !== null ? `${Math.floor(m / 12)}y ${m % 12}m` : "not reached"}`,
+    );
   }
   console.log(`\n${div}\n`);
 }
@@ -94,10 +169,11 @@ function printSummary(results) {
 
 function generateDashboard() {
   // Read the simulation.js source to embed in the HTML
-  const simSource = fs.readFileSync(path.join(__dirname, "simulation.js"), "utf8")
+  const simSource = fs
+    .readFileSync(path.join(__dirname, "simulation.js"), "utf8")
     .replace(/if\s*\(typeof module[\s\S]*$/, ""); // strip the module.exports block
 
-  const html = /*html*/`<!DOCTYPE html>
+  const html = /*html*/ `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -943,7 +1019,6 @@ runAll();
   return html;
 }
 
-
 // ── Main ─────────────────────────────────────────────────────────
 
 function main() {
@@ -962,7 +1037,7 @@ function main() {
   console.log("Generating interactive dashboard...\n");
   fs.mkdirSync(cfg.OUTPUT_DIR, { recursive: true });
   const html = generateDashboard();
-  const outPath = path.join(cfg.OUTPUT_DIR, "dashboard.html");
+  const outPath = path.join(cfg.OUTPUT_DIR, "index.html");
   fs.writeFileSync(outPath, html);
   console.log("  Saved: " + outPath);
   console.log("  Open in your browser — all controls are interactive.\n");

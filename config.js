@@ -34,5 +34,5 @@ module.exports = {
 
   ENABLE_VOLATILITY: false,
   VOLATILITY_STD: 0.15,
-  OUTPUT_DIR: "output",
+  OUTPUT_DIR: "docs",
 };

@@ -18,7 +18,7 @@ node main.js
 This does two things:
 
 1. Prints a detailed comparison table to your terminal
-2. Generates `output/dashboard.html` — open it in any browser
+2. Generates `docs/index.html` — open it in any browser
 
 The dashboard is a single self-contained HTML file (loads Chart.js from CDN). No server, no build step.
 
